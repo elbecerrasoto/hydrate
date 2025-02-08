@@ -14,7 +14,7 @@ TRIES = 12
 BATCH_SIZE = 4
 VERBOSE = True
 KEY = "80e90a387605463df09ac9121d0caa0b7108"
-WORKERS = os.cpu_count() * 4
+WORKERS_DOWNLOAD = os.cpu_count() * 4
 
 DEHYDRATE_LEAD = ["datasets", "download", "genome", "accession"]
 DEHYDRATE_LAG = ["--dehydrated", "--include", "protein,gff3", "--api-key", f"{KEY}"]
@@ -60,6 +60,8 @@ def worker(batch):
             genome_dir.mkdir()
             gff = gff.rename(genome_dir / f"{genome}.gff")
             faa = faa.rename(genome_dir / f"{genome}.faa")
+
+            sp.run(["pigz", str(gff), str(faa)], check=True)
         else:
             unsuccessful_genomes.append(genome)
 
@@ -77,7 +79,7 @@ if __name__ == "__main__":
     batches_dir = Path(f"genomes/batches")
     batches_dir.mkdir(parents=True)
 
-    with Pool(WORKERS) as p:
+    with Pool(WORKERS_DOWNLOAD) as p:
         results = p.map(worker, batches)
 
     shutil.rmtree(batches_dir)
