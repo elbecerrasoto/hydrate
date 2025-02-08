@@ -10,9 +10,7 @@ import numpy as np
 import pandas as pd
 
 IN = "in.tsv"
-TRIES = 12
 BATCH_SIZE = 4
-VERBOSE = True
 KEY = "80e90a387605463df09ac9121d0caa0b7108"
 WORKERS_DOWNLOAD = os.cpu_count() * 4
 
