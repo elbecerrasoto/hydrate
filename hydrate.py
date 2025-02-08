@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
+import os
+import shutil
 import subprocess as sp
 from multiprocessing import Pool
-import pandas as pd
-import numpy as np
-import shlex
-import os
 from pathlib import Path
 
-IN = "genomes.tsv"
+import numpy as np
+import pandas as pd
+
+IN = "in.tsv"
 TRIES = 12
 BATCH_SIZE = 4
 VERBOSE = True
@@ -21,40 +22,48 @@ REHYDRATE_LEAD = ["datasets", "rehydrate", "--api-key", f"{KEY}"]
 
 
 def worker(batch):
-
+    unsuccessful_genomes = []
     idx, genomes = batch
 
-    dehydrated_zip = Path(f"genomes/{idx}/{idx}.zip")
-    rehydrated_dir = Path(f"genomes/{idx}")
+    batch_dir = Path(f"genomes/batches/{idx}")
+    batch_zip = batch_dir / f"{idx}.zip"
 
     dehydrate_cmd = (
-        DEHYDRATE_LEAD
-        + list(genomes)
-        + ["--filename", str(dehydrated_zip)]
-        + DEHYDRATE_LAG
+        DEHYDRATE_LEAD + list(genomes) + ["--filename", str(batch_zip)] + DEHYDRATE_LAG
     )
-    unzip_cmd = ["unzip", str(dehydrated_zip), "-d", str(rehydrated_dir)]
-    rehydrate_cmd = REHYDRATE_LEAD + ["--directory", str(rehydrated_dir)]
+    unzip_cmd = ["unzip", str(batch_zip), "-d", str(batch_dir)]
+    rehydrate_cmd = REHYDRATE_LEAD + ["--directory", str(batch_dir)]
     md5sum_cmd = ["md5sum", "-c", "md5sum.txt"]
 
     try:
 
-        # main
-        rehydrated_dir.mkdir(parents=True)
+        # Batch Processing
+        batch_dir.mkdir(parents=True)
 
         sp.run(dehydrate_cmd, check=True)
         sp.run(unzip_cmd, check=True)
         sp.run(rehydrate_cmd, check=True)
-        sp.run(md5sum_cmd, check=True, cwd=rehydrated_dir)
-
-        ERR_CODE = 0
+        sp.run(md5sum_cmd, check=True, cwd=batch_dir)
 
     except (sp.CalledProcessError, FileExistsError) as err:
         print(err)
 
-        ERR_CODE = 1
+    for genome in genomes:
 
-    return ERR_CODE
+        genome_dir = Path(f"genomes/{genome}")
+        gff = batch_dir / "ncbi_dataset" / "data" / genome / "genomic.gff"
+        faa = batch_dir / "ncbi_dataset" / "data" / genome / "protein.faa"
+
+        print(gff)
+
+        if gff.is_file() and faa.is_file():
+            genome_dir.mkdir()
+            gff = gff.rename(genome_dir / f"{genome}.gff")
+            faa = faa.rename(genome_dir / f"{genome}.faa")
+        else:
+            unsuccessful_genomes.append(genome)
+
+    return unsuccessful_genomes
 
 
 if __name__ == "__main__":
@@ -65,7 +74,11 @@ if __name__ == "__main__":
     batches = np.array_split(genomes, int(np.ceil(len(genomes) / BATCH_SIZE)))
     batches = tuple(enumerate(batches))
 
+    batches_dir = Path(f"genomes/batches")
+    batches_dir.mkdir(parents=True)
+
     with Pool(WORKERS) as p:
         results = p.map(worker, batches)
 
+    shutil.rmtree(batches_dir)
     print(results)
