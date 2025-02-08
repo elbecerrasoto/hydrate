@@ -21,11 +21,11 @@ REHYDRATE_LEAD = ["datasets", "rehydrate", "--api-key", f"{KEY}"]
 
 
 def worker(batch):
+
     idx, genomes = batch
 
     dehydrated_zip = Path(f"genomes/{idx}/{idx}.zip")
     rehydrated_dir = Path(f"genomes/{idx}")
-    rehydrated_dir.mkdir(parents=True)
 
     dehydrate_cmd = (
         DEHYDRATE_LEAD
@@ -35,8 +35,26 @@ def worker(batch):
     )
     unzip_cmd = ["unzip", str(dehydrated_zip), "-d", str(rehydrated_dir)]
     rehydrate_cmd = REHYDRATE_LEAD + ["--directory", str(rehydrated_dir)]
+    md5sum_cmd = ["md5sum", "-c", "md5sum.txt"]
 
-    return dehydrate_cmd, dehydrate_cmd, unzip_cmd
+    try:
+
+        # main
+        rehydrated_dir.mkdir(parents=True)
+
+        sp.run(dehydrate_cmd, check=True)
+        sp.run(unzip_cmd, check=True)
+        sp.run(rehydrate_cmd, check=True)
+        sp.run(md5sum_cmd, check=True, cwd=rehydrated_dir)
+
+        ERR_CODE = 0
+
+    except (sp.CalledProcessError, FileExistsError) as err:
+        print(err)
+
+        ERR_CODE = 1
+
+    return ERR_CODE
 
 
 if __name__ == "__main__":
