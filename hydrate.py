@@ -1,27 +1,31 @@
 #!/usr/bin/env python3
 
 import os
+import random
 import shutil
 import subprocess as sp
+import time
 from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-IN = "in.tsv"
-BATCH_SIZE = 4
+IN = "r.tsv"
+BATCH_SIZE = 256
+TRIES = 12
 KEY = "80e90a387605463df09ac9121d0caa0b7108"
-WORKERS_DOWNLOAD = os.cpu_count() * 4
+# WORKERS_DOWNLOAD = os.cpu_count() * 4
+WORKERS_DOWNLOAD = 256
 
 DEHYDRATE_LEAD = ["datasets", "download", "genome", "accession"]
 DEHYDRATE_LAG = ["--dehydrated", "--include", "protein,gff3", "--api-key", f"{KEY}"]
 REHYDRATE_LEAD = ["datasets", "rehydrate", "--api-key", f"{KEY}"]
 
 
-def worker(batch):
+def worker(idx, genomes):
+    time.sleep(random.randint(0, 48))
     unsuccessful_genomes = []
-    idx, genomes = batch
 
     batch_dir = Path(f"genomes/batches/{idx}")
     batch_zip = batch_dir / f"{idx}.zip"
@@ -66,10 +70,7 @@ def worker(batch):
     return unsuccessful_genomes
 
 
-if __name__ == "__main__":
-
-    df = pd.read_table(IN)
-    genomes = np.array(df.genome)
+def download(genomes: list[str]):
 
     batches = np.array_split(genomes, int(np.ceil(len(genomes) / BATCH_SIZE)))
     batches = tuple(enumerate(batches))
@@ -78,7 +79,24 @@ if __name__ == "__main__":
     batches_dir.mkdir(parents=True)
 
     with Pool(WORKERS_DOWNLOAD) as p:
-        results = p.map(worker, batches)
+        results = p.starmap(worker, batches)
 
     shutil.rmtree(batches_dir)
-    print(results)
+
+    unsuccessful_genomes = []
+    for result in results:
+        unsuccessful_genomes.extend(result)
+
+    return unsuccessful_genomes
+
+
+if __name__ == "__main__":
+
+    df = pd.read_table(IN)
+    genomes = list(df.genome)
+
+    remaining_genomes = genomes
+    for i in range(TRIES):
+        remaining_genomes = download(remaining_genomes)
+        if not remaining_genomes:
+            break
