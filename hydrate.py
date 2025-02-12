@@ -15,8 +15,7 @@ IN = "r.tsv"
 BATCH_SIZE = 256
 TRIES = 12
 KEY = "80e90a387605463df09ac9121d0caa0b7108"
-# WORKERS_DOWNLOAD = os.cpu_count() * 4
-WORKERS_DOWNLOAD = 256
+WORKERS_DOWNLOAD = os.cpu_count() * 10
 
 DEHYDRATE_LEAD = ["datasets", "download", "genome", "accession"]
 DEHYDRATE_LAG = ["--dehydrated", "--include", "protein,gff3", "--api-key", f"{KEY}"]
@@ -24,7 +23,7 @@ REHYDRATE_LEAD = ["datasets", "rehydrate", "--api-key", f"{KEY}"]
 
 
 def worker(idx, genomes):
-    time.sleep(random.randint(0, 48))
+    time.sleep(0.1 + random.randint(0, 3))
     unsuccessful_genomes = []
 
     batch_dir = Path(f"genomes/batches/{idx}")

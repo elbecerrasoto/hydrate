@@ -33,6 +33,7 @@ def worker(target):
         hfifo.write(completed.stdout)
         hfifo.flush()
 
+
 if __name__ == "__main__":
 
     procs = []
@@ -42,4 +43,4 @@ if __name__ == "__main__":
         p.start()
 
     for p in procs:
-        p.join() # blocks until it gets read
+        p.join()  # blocks until it gets read
