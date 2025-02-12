@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 
 import os
-import random
-import shutil
+import sys
 import subprocess as sp
-import time
 from multiprocessing import Pool
 from pathlib import Path
+from shutil import rmtree
+from random import randint
+from time import sleep
 
 import numpy as np
 import pandas as pd
 
-IN = "r.tsv"
+IN = sys.argv[1]
 BATCH_SIZE = 256
 TRIES = 12
-KEY = "80e90a387605463df09ac9121d0caa0b7108"
+
+KEY = os.environ.setdefault("NCBI_DATASETS_APIKEY", "")
 WORKERS_DOWNLOAD = os.cpu_count() * 10
 
 DEHYDRATE_LEAD = ["datasets", "download", "genome", "accession"]
@@ -23,7 +25,7 @@ REHYDRATE_LEAD = ["datasets", "rehydrate", "--api-key", f"{KEY}"]
 
 
 def worker(idx, genomes):
-    time.sleep(0.1 + random.randint(0, 3))
+    sleep(0.1 + randint(0, 3))
     unsuccessful_genomes = []
 
     batch_dir = Path(f"genomes/batches/{idx}")
@@ -80,7 +82,7 @@ def download(genomes: list[str]):
     with Pool(WORKERS_DOWNLOAD) as p:
         results = p.starmap(worker, batches)
 
-    shutil.rmtree(batches_dir)
+    rmtree(batches_dir)
 
     unsuccessful_genomes = []
     for result in results:
